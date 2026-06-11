@@ -6,6 +6,7 @@ from opendbc.car.mazda import mazdacan
 from opendbc.car.mazda.values import CarControllerParams, Buttons
 
 from opendbc.sunnypilot.car.mazda.icbm import IntelligentCruiseButtonManagementInterface
+from opendbc.sunnypilot.car.mazda.torque_interceptor import TorqueInterceptorCarController
 
 VisualAlert = structs.CarControl.HUDControl.VisualAlert
 
@@ -17,6 +18,8 @@ class CarController(CarControllerBase, IntelligentCruiseButtonManagementInterfac
     self.apply_torque_last = 0
     self.packer = CANPacker(dbc_names[Bus.pt])
     self.brake_counter = 0
+
+    self.ti = TorqueInterceptorCarController(CP_SP)
 
   def update(self, CC, CC_SP, CS, now_nanos):
     can_sends = []
@@ -59,6 +62,9 @@ class CarController(CarControllerBase, IntelligentCruiseButtonManagementInterfac
     # send steering command
     can_sends.append(mazdacan.create_steering_control(self.packer, self.CP,
                                                       self.frame, apply_torque, CS.cam_lkas))
+
+    # torque interceptor steering command (keepalive, sent every frame)
+    can_sends.extend(self.ti.update(CC, CS, self.packer))
 
     # Intelligent Cruise Button Management
     can_sends.extend(IntelligentCruiseButtonManagementInterface.update(self, CC_SP, CS, self.packer, self.frame, self.last_button_frame))

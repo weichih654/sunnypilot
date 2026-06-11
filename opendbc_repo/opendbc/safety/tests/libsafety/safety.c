@@ -155,6 +155,11 @@ void set_desired_torque_last(int t){
   desired_torque_last = t;
 }
 
+void set_mazda_ti_torque_last(int t){
+  mazda_ti_desired_torque_last = t;
+  mazda_ti_rt_torque_last = t;
+}
+
 void set_desired_angle_last(int t){
   desired_angle_last = t;
 }

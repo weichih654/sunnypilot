@@ -3,6 +3,8 @@ from opendbc.car import Bus, create_button_events, structs
 from opendbc.car.common.conversions import Conversions as CV
 from opendbc.car.interfaces import CarStateBase
 from opendbc.car.mazda.values import DBC, LKAS_LIMITS
+from opendbc.sunnypilot.car.mazda.torque_interceptor import TorqueInterceptorCarState
+from opendbc.sunnypilot.car.mazda.values import MazdaFlagsSP
 
 ButtonType = structs.CarState.ButtonEvent.Type
 
@@ -21,6 +23,8 @@ class CarState(CarStateBase):
     self.distance_button = 0
     self.accel_button = 0
     self.decel_button = 0
+
+    self.ti = TorqueInterceptorCarState(CP_SP)
 
   def update(self, can_parsers) -> tuple[structs.CarState, structs.CarStateSP]:
     cp = can_parsers[Bus.pt]
@@ -50,8 +54,12 @@ class CarState(CarStateBase):
                                                                       cp.vl["BLINK_INFO"]["RIGHT_BLINK"] == 1)
 
     ret.steeringAngleDeg = cp.vl["STEER"]["STEER_ANGLE"]
-    ret.steeringTorque = cp.vl["STEER_TORQUE"]["STEER_TORQUE_SENSOR"]
-    ret.steeringPressed = abs(ret.steeringTorque) > LKAS_LIMITS.STEER_THRESHOLD
+
+    if self.ti.enabled:
+      self.ti.update(ret, can_parsers[Bus.body])
+    else:
+      ret.steeringTorque = cp.vl["STEER_TORQUE"]["STEER_TORQUE_SENSOR"]
+      ret.steeringPressed = abs(ret.steeringTorque) > LKAS_LIMITS.STEER_THRESHOLD
 
     ret.steeringTorqueEps = cp.vl["STEER_TORQUE"]["STEER_TORQUE_MOTOR"]
     ret.steeringRateDeg = cp.vl["STEER_RATE"]["STEER_ANGLE_RATE"]
@@ -89,7 +97,8 @@ class CarState(CarStateBase):
 
     # stock lkas should be on
     # TODO: is this needed?
-    ret.invalidLkasSetting = cp_cam.vl["CAM_LANEINFO"]["LANE_LINES"] == 0
+    # with a torque interceptor, steering works regardless of the stock LKAS setting
+    ret.invalidLkasSetting = cp_cam.vl["CAM_LANEINFO"]["LANE_LINES"] == 0 if not self.ti.enabled else False
 
     if ret.cruiseState.enabled:
       if not self.lkas_allowed_speed and self.acc_active_last:
@@ -101,7 +110,10 @@ class CarState(CarStateBase):
     # Check if LKAS is disabled due to lack of driver torque when all other states indicate
     # it should be enabled (steer lockout). Don't warn until we actually get lkas active
     # and lose it again, i.e, after initial lkas activation
-    ret.steerFaultTemporary = self.lkas_allowed_speed and lkas_blocked
+    ret.steerFaultTemporary = self.lkas_allowed_speed and lkas_blocked and not self.ti.lkas_allowed
+    # no-entry until the interceptor comes up, and a driver alert if it fails persistently
+    if self.ti.enabled and self.ti.fault:
+      ret.steerFaultTemporary = True
 
     self.acc_active_last = ret.cruiseState.enabled
 
@@ -110,7 +122,7 @@ class CarState(CarStateBase):
     # camera signals
     self.cam_lkas = cp_cam.vl["CAM_LKAS"]
     self.cam_laneinfo = cp_cam.vl["CAM_LANEINFO"]
-    ret.steerFaultPermanent = cp_cam.vl["CAM_LKAS"]["ERR_BIT_1"] == 1
+    ret.steerFaultPermanent = cp_cam.vl["CAM_LKAS"]["ERR_BIT_1"] == 1 if not self.ti.enabled else False
 
     # cruise control button events: distance, inc, and dec
     prev_distance_button = self.distance_button
@@ -130,7 +142,12 @@ class CarState(CarStateBase):
 
   @staticmethod
   def get_can_parsers(CP, CP_SP):
-    return {
+    parsers = {
       Bus.pt: CANParser(DBC[CP.carFingerprint][Bus.pt], [], 0),
       Bus.cam: CANParser(DBC[CP.carFingerprint][Bus.pt], [], 2),
     }
+
+    if CP_SP.flags & MazdaFlagsSP.TORQUE_INTERCEPTOR:
+      parsers[Bus.body] = CANParser(DBC[CP.carFingerprint][Bus.pt], [("TI_FEEDBACK", 50)], 1)  # torque interceptor
+
+    return parsers
