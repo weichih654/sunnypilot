@@ -287,6 +287,10 @@ class TestKnownVehicleSettings:
     keys = {i["key"] for i in _brand_items(schema["vehicle_settings"].get("tesla"))}
     assert "TeslaCoopSteering" in keys
 
+  def test_mazda_has_torque_interceptor(self, schema):
+    keys = {i["key"] for i in _brand_items(schema["vehicle_settings"].get("mazda"))}
+    assert "MazdaTorqueInterceptor" in keys
+
   def test_subaru_has_stop_and_go(self, schema):
     keys = {i["key"] for i in _brand_items(schema["vehicle_settings"].get("subaru"))}
     assert "SubaruStopAndGo" in keys

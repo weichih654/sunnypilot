@@ -697,6 +697,10 @@
     "description": "",
     "unit": "minutes"
   },
+  "MazdaTorqueInterceptor": {
+    "title": "Mazda Torque Interceptor",
+    "description": ""
+  },
   "ModelManager_ActiveBundle": {
     "title": "Model Manager Active Bundle",
     "description": ""

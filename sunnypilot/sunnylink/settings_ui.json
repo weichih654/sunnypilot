@@ -2112,6 +2112,23 @@
         }
       ]
     },
+    "mazda": {
+      "title": "Mazda Settings",
+      "description": "",
+      "items": [
+        {
+          "key": "MazdaTorqueInterceptor",
+          "widget": "toggle",
+          "title": "Torque Interceptor (Beta)",
+          "description": "Enable this only if a torque interceptor is physically installed. Allows full-speed-range steering on Gen1 Mazda by bypassing the stock EPS low-speed LKAS lockout.",
+          "enablement": [
+            {
+              "type": "offroad_only"
+            }
+          ]
+        }
+      ]
+    },
     "subaru": {
       "title": "Subaru Settings",
       "description": "",
