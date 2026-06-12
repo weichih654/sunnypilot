@@ -14,6 +14,10 @@ if arch != "larch64":
   else:
     libs += ['va', 'va-drm', 'drm']
 
+else:
+  # larch64: ffmpeg .a is built with vaapi on this device; link va to resolve
+  libs += ["va", "va-drm", "drm"]
+
 if arch == "Darwin":
   # exclude v4l
   del src[src.index('encoder/v4l_encoder.cc')]
